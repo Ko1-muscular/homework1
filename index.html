@@ -3,29 +3,29 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pac-Man Game</title>
+<title>Pac-Man</title>
 <style>
 body{
-    background:black;
+    margin:0;
+    background:#000;
     color:white;
-    text-align:center;
     font-family:Arial,sans-serif;
+    text-align:center;
 }
 
 h1{
     color:yellow;
-}
-
-#game{
-    display:block;
-    margin:auto;
-    border:4px solid blue;
-    background:black;
+    margin:10px;
 }
 
 #score{
     font-size:24px;
-    margin:10px;
+    margin-bottom:10px;
+}
+
+canvas{
+    border:4px solid #0044ff;
+    background:black;
 }
 </style>
 </head>
@@ -33,13 +33,13 @@ h1{
 
 <h1>Pac-Man</h1>
 <div id="score">Score: 0</div>
-<canvas id="game" width="560" height="560"></canvas>
+<canvas id="game" width="560" height="480"></canvas>
 
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-const tileSize = 40;
+const TILE = 40;
 
 const map = [
 "##############",
@@ -56,119 +56,220 @@ const map = [
 "##############"
 ];
 
-let dots = [];
+let score = 0;
+let gameOver = false;
+let win = false;
+
+const dots = [];
 
 for(let y=0;y<map.length;y++){
     for(let x=0;x<map[y].length;x++){
         if(map[y][x]==="."){
-            dots.push({x,y});
+            dots.push({
+                x:x,
+                y:y,
+                eaten:false
+            });
         }
     }
 }
 
 const pacman = {
-    x:1,
-    y:1,
-    dx:0,
-    dy:0
+    x:TILE*1.5,
+    y:TILE*1.5,
+    dirX:0,
+    dirY:0,
+    nextX:0,
+    nextY:0,
+    speed:2.5,
+    mouth:0,
+    mouthDir:1
 };
 
 const ghost = {
-    x:12,
-    y:10
+    x:TILE*12.5,
+    y:TILE*10.5,
+    speed:2
 };
-
-let score = 0;
-let gameOver = false;
-let win = false;
 
 document.addEventListener("keydown", e=>{
     if(e.key==="ArrowUp"){
-        pacman.dx=0;
-        pacman.dy=-1;
+        pacman.nextX=0;
+        pacman.nextY=-1;
     }
     if(e.key==="ArrowDown"){
-        pacman.dx=0;
-        pacman.dy=1;
+        pacman.nextX=0;
+        pacman.nextY=1;
     }
     if(e.key==="ArrowLeft"){
-        pacman.dx=-1;
-        pacman.dy=0;
+        pacman.nextX=-1;
+        pacman.nextY=0;
     }
     if(e.key==="ArrowRight"){
-        pacman.dx=1;
-        pacman.dy=0;
+        pacman.nextX=1;
+        pacman.nextY=0;
     }
 });
 
-function wall(x,y){
-    return map[y][x]==="#";
+function isWallTile(tx,ty){
+    if(ty<0||ty>=map.length||tx<0||tx>=map[0].length){
+        return true;
+    }
+    return map[ty][tx]==="#";
 }
 
-function movePacman(){
-    const nx = pacman.x + pacman.dx;
-    const ny = pacman.y + pacman.dy;
+function canMove(px,py,dx,dy){
+    const nx = px + dx*2;
+    const ny = py + dy*2;
 
-    if(!wall(nx,ny)){
-        pacman.x = nx;
-        pacman.y = ny;
+    const tx = Math.floor(nx/TILE);
+    const ty = Math.floor(ny/TILE);
+
+    return !isWallTile(tx,ty);
+}
+
+function centerOfTile(value){
+    return Math.round((value - TILE/2)/TILE)*TILE + TILE/2;
+}
+
+function nearCenter(){
+    const cx = centerOfTile(pacman.x);
+    const cy = centerOfTile(pacman.y);
+
+    return (
+        Math.abs(pacman.x-cx)<3 &&
+        Math.abs(pacman.y-cy)<3
+    );
+}
+
+function updatePacman(){
+
+    if(nearCenter()){
+
+        pacman.x = centerOfTile(pacman.x);
+        pacman.y = centerOfTile(pacman.y);
+
+        if(canMove(
+            pacman.x,
+            pacman.y,
+            pacman.nextX,
+            pacman.nextY
+        )){
+            pacman.dirX = pacman.nextX;
+            pacman.dirY = pacman.nextY;
+        }
+
+        if(!canMove(
+            pacman.x,
+            pacman.y,
+            pacman.dirX,
+            pacman.dirY
+        )){
+            pacman.dirX = 0;
+            pacman.dirY = 0;
+        }
     }
 
-    for(let i=dots.length-1;i>=0;i--){
-        if(dots[i].x===pacman.x && dots[i].y===pacman.y){
-            dots.splice(i,1);
-            score += 10;
+    pacman.x += pacman.dirX*pacman.speed;
+    pacman.y += pacman.dirY*pacman.speed;
+
+    pacman.mouth += 0.1*pacman.mouthDir;
+
+    if(pacman.mouth>1){
+        pacman.mouth=1;
+        pacman.mouthDir=-1;
+    }
+
+    if(pacman.mouth<0){
+        pacman.mouth=0;
+        pacman.mouthDir=1;
+    }
+
+    for(const dot of dots){
+
+        if(dot.eaten) continue;
+
+        const dx = pacman.x-(dot.x*TILE+TILE/2);
+        const dy = pacman.y-(dot.y*TILE+TILE/2);
+
+        if(Math.hypot(dx,dy)<12){
+            dot.eaten=true;
+            score+=10;
             document.getElementById("score").textContent =
-            "Score: " + score;
+                "Score: "+score;
         }
     }
 
-    if(dots.length===0){
-        win = true;
+    if(dots.every(d=>d.eaten)){
+        win=true;
     }
 }
 
-function moveGhost(){
-    const dirs = [
-        {x:1,y:0},
-        {x:-1,y:0},
-        {x:0,y:1},
-        {x:0,y:-1}
-    ];
+function updateGhost(){
 
-    let possible = [];
+    if(Math.random()<0.03){
 
-    for(let d of dirs){
-        let nx = ghost.x + d.x;
-        let ny = ghost.y + d.y;
+        const dirs = [
+            [1,0],
+            [-1,0],
+            [0,1],
+            [0,-1]
+        ];
 
-        if(!wall(nx,ny)){
-            possible.push(d);
+        const possible=[];
+
+        for(const d of dirs){
+
+            const tx=Math.floor(
+                (ghost.x+d[0]*20)/TILE
+            );
+
+            const ty=Math.floor(
+                (ghost.y+d[1]*20)/TILE
+            );
+
+            if(!isWallTile(tx,ty)){
+                possible.push(d);
+            }
+        }
+
+        if(possible.length){
+            const d =
+            possible[Math.floor(
+                Math.random()*possible.length
+            )];
+
+            ghost.dx=d[0];
+            ghost.dy=d[1];
         }
     }
 
-    if(possible.length){
-        const d = possible[Math.floor(Math.random()*possible.length)];
-        ghost.x += d.x;
-        ghost.y += d.y;
-    }
+    ghost.x += (ghost.dx||0)*ghost.speed;
+    ghost.y += (ghost.dy||0)*ghost.speed;
 
-    if(ghost.x===pacman.x && ghost.y===pacman.y){
-        gameOver = true;
+    const dist = Math.hypot(
+        pacman.x-ghost.x,
+        pacman.y-ghost.y
+    );
+
+    if(dist<20){
+        gameOver=true;
     }
 }
 
 function drawMap(){
+
     for(let y=0;y<map.length;y++){
         for(let x=0;x<map[y].length;x++){
 
             if(map[y][x]==="#"){
-                ctx.fillStyle="blue";
+                ctx.fillStyle="#003cff";
+
                 ctx.fillRect(
-                    x*tileSize,
-                    y*tileSize,
-                    tileSize,
-                    tileSize
+                    x*TILE,
+                    y*TILE,
+                    TILE,
+                    TILE
                 );
             }
         }
@@ -176,13 +277,17 @@ function drawMap(){
 }
 
 function drawDots(){
+
     ctx.fillStyle="white";
 
-    for(let dot of dots){
+    for(const dot of dots){
+
+        if(dot.eaten) continue;
+
         ctx.beginPath();
         ctx.arc(
-            dot.x*tileSize+tileSize/2,
-            dot.y*tileSize+tileSize/2,
+            dot.x*TILE+TILE/2,
+            dot.y*TILE+TILE/2,
             4,
             0,
             Math.PI*2
@@ -192,48 +297,75 @@ function drawDots(){
 }
 
 function drawPacman(){
+
+    let angle=0;
+
+    if(pacman.dirX===1) angle=0;
+    if(pacman.dirX===-1) angle=Math.PI;
+    if(pacman.dirY===1) angle=Math.PI/2;
+    if(pacman.dirY===-1) angle=-Math.PI/2;
+
+    const mouth = pacman.mouth*0.5;
+
     ctx.fillStyle="yellow";
 
     ctx.beginPath();
+    ctx.moveTo(pacman.x,pacman.y);
+
     ctx.arc(
-        pacman.x*tileSize+tileSize/2,
-        pacman.y*tileSize+tileSize/2,
+        pacman.x,
+        pacman.y,
         16,
-        0.2*Math.PI,
-        1.8*Math.PI
+        angle+mouth,
+        angle+Math.PI*2-mouth
     );
-    ctx.lineTo(
-        pacman.x*tileSize+tileSize/2,
-        pacman.y*tileSize+tileSize/2
-    );
+
+    ctx.closePath();
     ctx.fill();
 }
 
 function drawGhost(){
-    const gx = ghost.x*tileSize;
-    const gy = ghost.y*tileSize;
 
     ctx.fillStyle="red";
 
+    const x=ghost.x;
+    const y=ghost.y;
+
     ctx.beginPath();
-    ctx.arc(gx+20,gy+18,16,Math.PI,0);
-    ctx.lineTo(gx+36,gy+36);
-    ctx.lineTo(gx+28,gy+30);
-    ctx.lineTo(gx+20,gy+36);
-    ctx.lineTo(gx+12,gy+30);
-    ctx.lineTo(gx+4,gy+36);
+
+    ctx.arc(
+        x,
+        y-4,
+        16,
+        Math.PI,
+        0
+    );
+
+    ctx.lineTo(x+16,y+16);
+    ctx.lineTo(x+8,y+10);
+    ctx.lineTo(x,y+16);
+    ctx.lineTo(x-8,y+10);
+    ctx.lineTo(x-16,y+16);
+
     ctx.closePath();
     ctx.fill();
 
     ctx.fillStyle="white";
+
     ctx.beginPath();
-    ctx.arc(gx+14,gy+18,4,0,Math.PI*2);
-    ctx.arc(gx+26,gy+18,4,0,Math.PI*2);
+    ctx.arc(x-5,y-5,3,0,Math.PI*2);
+    ctx.arc(x+5,y-5,3,0,Math.PI*2);
     ctx.fill();
 }
 
 function draw(){
-    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    ctx.clearRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
 
     drawMap();
     drawDots();
@@ -241,40 +373,41 @@ function draw(){
     drawGhost();
 
     if(gameOver){
+
         ctx.fillStyle="red";
         ctx.font="50px Arial";
-        ctx.fillText("GAME OVER",110,280);
+        ctx.fillText(
+            "GAME OVER",
+            110,
+            240
+        );
     }
 
     if(win){
+
         ctx.fillStyle="lime";
         ctx.font="50px Arial";
-        ctx.fillText("YOU WIN!",140,280);
+        ctx.fillText(
+            "YOU WIN!",
+            140,
+            240
+        );
     }
 }
 
-function update(){
-    if(gameOver || win) return;
+function loop(){
 
-    movePacman();
-
-    if(frame % 10 === 0){
-        moveGhost();
+    if(!gameOver && !win){
+        updatePacman();
+        updateGhost();
     }
-}
 
-let frame = 0;
-
-function gameLoop(){
-    frame++;
-
-    update();
     draw();
 
-    requestAnimationFrame(gameLoop);
+    requestAnimationFrame(loop);
 }
 
-gameLoop();
+loop();
 </script>
 
 </body>
