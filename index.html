@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pac-Man Game</title>
+<style>
+body{
+    background:black;
+    color:white;
+    text-align:center;
+    font-family:Arial,sans-serif;
+}
+
+h1{
+    color:yellow;
+}
+
+#game{
+    display:block;
+    margin:auto;
+    border:4px solid blue;
+    background:black;
+}
+
+#score{
+    font-size:24px;
+    margin:10px;
+}
+</style>
+</head>
+<body>
+
+<h1>Pac-Man</h1>
+<div id="score">Score: 0</div>
+<canvas id="game" width="560" height="560"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+const tileSize = 40;
+
+const map = [
+"##############",
+"#............#",
+"#.####..####.#",
+"#............#",
+"#.##.####.##.#",
+"#............#",
+"#.####..####.#",
+"#............#",
+"#.##.####.##.#",
+"#............#",
+"#............#",
+"##############"
+];
+
+let dots = [];
+
+for(let y=0;y<map.length;y++){
+    for(let x=0;x<map[y].length;x++){
+        if(map[y][x]==="."){
+            dots.push({x,y});
+        }
+    }
+}
+
+const pacman = {
+    x:1,
+    y:1,
+    dx:0,
+    dy:0
+};
+
+const ghost = {
+    x:12,
+    y:10
+};
+
+let score = 0;
+let gameOver = false;
+let win = false;
+
+document.addEventListener("keydown", e=>{
+    if(e.key==="ArrowUp"){
+        pacman.dx=0;
+        pacman.dy=-1;
+    }
+    if(e.key==="ArrowDown"){
+        pacman.dx=0;
+        pacman.dy=1;
+    }
+    if(e.key==="ArrowLeft"){
+        pacman.dx=-1;
+        pacman.dy=0;
+    }
+    if(e.key==="ArrowRight"){
+        pacman.dx=1;
+        pacman.dy=0;
+    }
+});
+
+function wall(x,y){
+    return map[y][x]==="#";
+}
+
+function movePacman(){
+    const nx = pacman.x + pacman.dx;
+    const ny = pacman.y + pacman.dy;
+
+    if(!wall(nx,ny)){
+        pacman.x = nx;
+        pacman.y = ny;
+    }
+
+    for(let i=dots.length-1;i>=0;i--){
+        if(dots[i].x===pacman.x && dots[i].y===pacman.y){
+            dots.splice(i,1);
+            score += 10;
+            document.getElementById("score").textContent =
+            "Score: " + score;
+        }
+    }
+
+    if(dots.length===0){
+        win = true;
+    }
+}
+
+function moveGhost(){
+    const dirs = [
+        {x:1,y:0},
+        {x:-1,y:0},
+        {x:0,y:1},
+        {x:0,y:-1}
+    ];
+
+    let possible = [];
+
+    for(let d of dirs){
+        let nx = ghost.x + d.x;
+        let ny = ghost.y + d.y;
+
+        if(!wall(nx,ny)){
+            possible.push(d);
+        }
+    }
+
+    if(possible.length){
+        const d = possible[Math.floor(Math.random()*possible.length)];
+        ghost.x += d.x;
+        ghost.y += d.y;
+    }
+
+    if(ghost.x===pacman.x && ghost.y===pacman.y){
+        gameOver = true;
+    }
+}
+
+function drawMap(){
+    for(let y=0;y<map.length;y++){
+        for(let x=0;x<map[y].length;x++){
+
+            if(map[y][x]==="#"){
+                ctx.fillStyle="blue";
+                ctx.fillRect(
+                    x*tileSize,
+                    y*tileSize,
+                    tileSize,
+                    tileSize
+                );
+            }
+        }
+    }
+}
+
+function drawDots(){
+    ctx.fillStyle="white";
+
+    for(let dot of dots){
+        ctx.beginPath();
+        ctx.arc(
+            dot.x*tileSize+tileSize/2,
+            dot.y*tileSize+tileSize/2,
+            4,
+            0,
+            Math.PI*2
+        );
+        ctx.fill();
+    }
+}
+
+function drawPacman(){
+    ctx.fillStyle="yellow";
+
+    ctx.beginPath();
+    ctx.arc(
+        pacman.x*tileSize+tileSize/2,
+        pacman.y*tileSize+tileSize/2,
+        16,
+        0.2*Math.PI,
+        1.8*Math.PI
+    );
+    ctx.lineTo(
+        pacman.x*tileSize+tileSize/2,
+        pacman.y*tileSize+tileSize/2
+    );
+    ctx.fill();
+}
+
+function drawGhost(){
+    const gx = ghost.x*tileSize;
+    const gy = ghost.y*tileSize;
+
+    ctx.fillStyle="red";
+
+    ctx.beginPath();
+    ctx.arc(gx+20,gy+18,16,Math.PI,0);
+    ctx.lineTo(gx+36,gy+36);
+    ctx.lineTo(gx+28,gy+30);
+    ctx.lineTo(gx+20,gy+36);
+    ctx.lineTo(gx+12,gy+30);
+    ctx.lineTo(gx+4,gy+36);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle="white";
+    ctx.beginPath();
+    ctx.arc(gx+14,gy+18,4,0,Math.PI*2);
+    ctx.arc(gx+26,gy+18,4,0,Math.PI*2);
+    ctx.fill();
+}
+
+function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    drawMap();
+    drawDots();
+    drawPacman();
+    drawGhost();
+
+    if(gameOver){
+        ctx.fillStyle="red";
+        ctx.font="50px Arial";
+        ctx.fillText("GAME OVER",110,280);
+    }
+
+    if(win){
+        ctx.fillStyle="lime";
+        ctx.font="50px Arial";
+        ctx.fillText("YOU WIN!",140,280);
+    }
+}
+
+function update(){
+    if(gameOver || win) return;
+
+    movePacman();
+
+    if(frame % 10 === 0){
+        moveGhost();
+    }
+}
+
+let frame = 0;
+
+function gameLoop(){
+    frame++;
+
+    update();
+    draw();
+
+    requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
+</script>
+
+</body>
+</html>
