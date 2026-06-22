@@ -8,21 +8,18 @@
 body{
     margin:0;
     background:#000;
-    color:white;
+    color:#fff;
     font-family:Arial,sans-serif;
     text-align:center;
 }
-
 h1{
     color:yellow;
     margin:10px;
 }
-
 #score{
     font-size:24px;
     margin-bottom:10px;
 }
-
 canvas{
     border:4px solid #0044ff;
     background:black;
@@ -66,8 +63,8 @@ for(let y=0;y<map.length;y++){
     for(let x=0;x<map[y].length;x++){
         if(map[y][x]==="."){
             dots.push({
-                x:x,
-                y:y,
+                x,
+                y,
                 eaten:false
             });
         }
@@ -81,7 +78,7 @@ const pacman = {
     dirY:0,
     nextX:0,
     nextY:0,
-    speed:2.5,
+    speed:4.5,
     mouth:0,
     mouthDir:1
 };
@@ -89,7 +86,9 @@ const pacman = {
 const ghost = {
     x:TILE*12.5,
     y:TILE*10.5,
-    speed:2
+    dx:-1,
+    dy:0,
+    speed:3.5
 };
 
 document.addEventListener("keydown", e=>{
@@ -112,15 +111,15 @@ document.addEventListener("keydown", e=>{
 });
 
 function isWallTile(tx,ty){
-    if(ty<0||ty>=map.length||tx<0||tx>=map[0].length){
+    if(tx<0||ty<0||ty>=map.length||tx>=map[0].length){
         return true;
     }
     return map[ty][tx]==="#";
 }
 
 function canMove(px,py,dx,dy){
-    const nx = px + dx*2;
-    const ny = py + dy*2;
+    const nx = px + dx*18;
+    const ny = py + dy*18;
 
     const tx = Math.floor(nx/TILE);
     const ty = Math.floor(ny/TILE);
@@ -128,26 +127,23 @@ function canMove(px,py,dx,dy){
     return !isWallTile(tx,ty);
 }
 
-function centerOfTile(value){
-    return Math.round((value - TILE/2)/TILE)*TILE + TILE/2;
+function centerTile(value){
+    return Math.round((value-TILE/2)/TILE)*TILE + TILE/2;
 }
 
-function nearCenter(){
-    const cx = centerOfTile(pacman.x);
-    const cy = centerOfTile(pacman.y);
-
+function nearCenter(x,y){
     return (
-        Math.abs(pacman.x-cx)<3 &&
-        Math.abs(pacman.y-cy)<3
+        Math.abs(x-centerTile(x)) < 5 &&
+        Math.abs(y-centerTile(y)) < 5
     );
 }
 
 function updatePacman(){
 
-    if(nearCenter()){
+    if(nearCenter(pacman.x,pacman.y)){
 
-        pacman.x = centerOfTile(pacman.x);
-        pacman.y = centerOfTile(pacman.y);
+        pacman.x = centerTile(pacman.x);
+        pacman.y = centerTile(pacman.y);
 
         if(canMove(
             pacman.x,
@@ -170,44 +166,47 @@ function updatePacman(){
         }
     }
 
-    pacman.x += pacman.dirX*pacman.speed;
-    pacman.y += pacman.dirY*pacman.speed;
+    pacman.x += pacman.dirX * pacman.speed;
+    pacman.y += pacman.dirY * pacman.speed;
 
-    pacman.mouth += 0.1*pacman.mouthDir;
+    pacman.mouth += 0.18 * pacman.mouthDir;
 
-    if(pacman.mouth>1){
-        pacman.mouth=1;
-        pacman.mouthDir=-1;
+    if(pacman.mouth > 1){
+        pacman.mouth = 1;
+        pacman.mouthDir = -1;
     }
 
-    if(pacman.mouth<0){
-        pacman.mouth=0;
-        pacman.mouthDir=1;
+    if(pacman.mouth < 0){
+        pacman.mouth = 0;
+        pacman.mouthDir = 1;
     }
 
     for(const dot of dots){
 
         if(dot.eaten) continue;
 
-        const dx = pacman.x-(dot.x*TILE+TILE/2);
-        const dy = pacman.y-(dot.y*TILE+TILE/2);
+        const dx = pacman.x - (dot.x*TILE + TILE/2);
+        const dy = pacman.y - (dot.y*TILE + TILE/2);
 
-        if(Math.hypot(dx,dy)<12){
-            dot.eaten=true;
-            score+=10;
+        if(Math.hypot(dx,dy) < 14){
+            dot.eaten = true;
+            score += 10;
             document.getElementById("score").textContent =
-                "Score: "+score;
+            "Score: " + score;
         }
     }
 
     if(dots.every(d=>d.eaten)){
-        win=true;
+        win = true;
     }
 }
 
 function updateGhost(){
 
-    if(Math.random()<0.03){
+    if(nearCenter(ghost.x,ghost.y)){
+
+        ghost.x = centerTile(ghost.x);
+        ghost.y = centerTile(ghost.y);
 
         const dirs = [
             [1,0],
@@ -216,55 +215,51 @@ function updateGhost(){
             [0,-1]
         ];
 
-        const possible=[];
+        const valid = [];
 
         for(const d of dirs){
 
-            const tx=Math.floor(
-                (ghost.x+d[0]*20)/TILE
+            const tx = Math.floor(
+                (ghost.x + d[0]*20)/TILE
             );
 
-            const ty=Math.floor(
-                (ghost.y+d[1]*20)/TILE
+            const ty = Math.floor(
+                (ghost.y + d[1]*20)/TILE
             );
 
             if(!isWallTile(tx,ty)){
-                possible.push(d);
+                valid.push(d);
             }
         }
 
-        if(possible.length){
-            const d =
-            possible[Math.floor(
-                Math.random()*possible.length
-            )];
+        if(valid.length){
+            const choice =
+            valid[Math.floor(Math.random()*valid.length)];
 
-            ghost.dx=d[0];
-            ghost.dy=d[1];
+            ghost.dx = choice[0];
+            ghost.dy = choice[1];
         }
     }
 
-    ghost.x += (ghost.dx||0)*ghost.speed;
-    ghost.y += (ghost.dy||0)*ghost.speed;
+    ghost.x += ghost.dx * ghost.speed;
+    ghost.y += ghost.dy * ghost.speed;
 
     const dist = Math.hypot(
-        pacman.x-ghost.x,
-        pacman.y-ghost.y
+        pacman.x - ghost.x,
+        pacman.y - ghost.y
     );
 
-    if(dist<20){
-        gameOver=true;
+    if(dist < 20){
+        gameOver = true;
     }
 }
 
 function drawMap(){
-
     for(let y=0;y<map.length;y++){
         for(let x=0;x<map[y].length;x++){
 
             if(map[y][x]==="#"){
                 ctx.fillStyle="#003cff";
-
                 ctx.fillRect(
                     x*TILE,
                     y*TILE,
@@ -298,14 +293,14 @@ function drawDots(){
 
 function drawPacman(){
 
-    let angle=0;
+    let angle = 0;
 
     if(pacman.dirX===1) angle=0;
     if(pacman.dirX===-1) angle=Math.PI;
     if(pacman.dirY===1) angle=Math.PI/2;
     if(pacman.dirY===-1) angle=-Math.PI/2;
 
-    const mouth = pacman.mouth*0.5;
+    const mouth = pacman.mouth * 0.45;
 
     ctx.fillStyle="yellow";
 
@@ -316,8 +311,8 @@ function drawPacman(){
         pacman.x,
         pacman.y,
         16,
-        angle+mouth,
-        angle+Math.PI*2-mouth
+        angle + mouth,
+        angle + Math.PI*2 - mouth
     );
 
     ctx.closePath();
@@ -326,27 +321,18 @@ function drawPacman(){
 
 function drawGhost(){
 
+    const x = ghost.x;
+    const y = ghost.y;
+
     ctx.fillStyle="red";
 
-    const x=ghost.x;
-    const y=ghost.y;
-
     ctx.beginPath();
-
-    ctx.arc(
-        x,
-        y-4,
-        16,
-        Math.PI,
-        0
-    );
-
+    ctx.arc(x,y-4,16,Math.PI,0);
     ctx.lineTo(x+16,y+16);
     ctx.lineTo(x+8,y+10);
     ctx.lineTo(x,y+16);
     ctx.lineTo(x-8,y+10);
     ctx.lineTo(x-16,y+16);
-
     ctx.closePath();
     ctx.fill();
 
@@ -360,12 +346,7 @@ function drawGhost(){
 
 function draw(){
 
-    ctx.clearRect(
-        0,
-        0,
-        canvas.width,
-        canvas.height
-    );
+    ctx.clearRect(0,0,canvas.width,canvas.height);
 
     drawMap();
     drawDots();
@@ -373,25 +354,15 @@ function draw(){
     drawGhost();
 
     if(gameOver){
-
         ctx.fillStyle="red";
         ctx.font="50px Arial";
-        ctx.fillText(
-            "GAME OVER",
-            110,
-            240
-        );
+        ctx.fillText("GAME OVER",105,240);
     }
 
     if(win){
-
         ctx.fillStyle="lime";
         ctx.font="50px Arial";
-        ctx.fillText(
-            "YOU WIN!",
-            140,
-            240
-        );
+        ctx.fillText("YOU WIN!",135,240);
     }
 }
 
@@ -403,7 +374,6 @@ function loop(){
     }
 
     draw();
-
     requestAnimationFrame(loop);
 }
 
